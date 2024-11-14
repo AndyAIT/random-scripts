@@ -1,0 +1,61 @@
+# 1. Connect to SharePoint Online Tenant
+$tenantUrl = "https://xxxxx-admin.sharepoint.com"
+Connect-PnPOnline -Url $tenantUrl -Interactive -ClientId 8701010f-bb24-4445-b2ae-a6c8cdd28777
+
+# 2. Get all SharePoint site collections in the tenant
+$sites = Get-PnPTenantSite
+
+# 3. Loop through all SharePoint sites to gather all users
+foreach ($site in $sites) {
+    Write-Host "Processing site: $($site.Url)"
+    Connect-PnPOnline -Url $site.Url -Interactive -ClientId 8701010f-bb24-4445-b2ae-a6c8cdd28777
+    
+    # 4. Get the site's title (site name)
+    $siteTitle = (Get-PnPSite).Title
+
+    # 5. Get all groups within the current site
+    $groups = Get-PnPGroup
+
+    # 6. Loop through each group in the site
+    foreach ($group in $groups) {
+        Write-Host "  Checking group: $($group.Title)"
+        
+        # 7. Skip any "SharingLinks" groups
+        if ($group.Title -like "*SharingLinks*") {
+            Write-Host "    Skipping SharingLinks group: $($group.Title)"
+            continue
+        }
+
+        # 8. Get all members of the current group
+        $users = Get-PnPGroupMember -Identity $group
+
+        # 9. Loop through each user in the group
+        foreach ($user in $users) {
+            # 10. Get the user's email
+            $userEmail = $user.Email
+
+            # 11. Check if the user's email domain matches either of the two specified domains
+            if ($userEmail -like "*@xxxx.com.au" -or $userEmail -like "*@xxxx.onmicrosoft.com") {
+                # 12. Create a custom object with the relevant data
+                $userAccess = [PSCustomObject]@{
+                    SiteURL        = $site.Url
+                    SiteName       = $site.Title  # Site name
+                    GroupName      = $group.Title
+                    UserEmail      = $user.Email
+                    UserDisplayName= $user.Title
+                    Role           = $group.Title
+                }
+
+                # 13. Define the file name based on the user's email (username part before '@')
+                $csvFilename = "$($user.Email.Split('@')[0])-SharePointAccess.csv"
+
+                # 14. Export the user's data to their individual CSV file
+                $userAccess | Export-Csv -Path $csvFilename -NoTypeInformation
+
+                Write-Host "Exported access for user $($user.Email) to $csvFilename"
+            }
+        }
+    }
+}
+
+Write-Host "Script execution completed."
