@@ -1,0 +1,75 @@
+# Script is used to pull the Notifyre API and check for received faxes. It will run hourly. It will look at faxes where the timestamp (as provide by notifyre) is LESS than one hour old
+# you can change this at $OneHourAgo. I really shuld change the name of that variable.
+# the assumption is that more than 100 faxes an hour would not be received. But you can change that at $ListEndPoint. I couldn't find a way to make this 0, or do without it yet
+
+
+
+# Config
+$BaseUrl = "https://api.notifyre.com"
+$APIToken = "OhDidYouWantToScrapeMyAPIKeyWellThatsTooBad"
+$ListEndPoint = "/fax/received?toNumer=&limit=100&skip=0"
+$downloadTemplate = "/fax/received/{0}/download"
+$downloadDir = "C:\temp\Faxes"
+$logFile = "$downloadDir\ActionedFaxes.txt"
+
+
+# Time window: received within the past 1 hour
+$now = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
+$oneHourAgo = $now - 3600  # 3600 seconds = 1 hour
+
+
+# Ensure download folder exists
+if (-not (Test-Path $downloadDir)) {
+    New-Item -ItemType Directory -Path $downloadDir
+}
+
+
+function Write-Log {
+    param([string]$message)
+
+    # Write to console
+    Write-Host $message
+
+    # Append to log file with timestamp
+    $timestamp = (Get-Date).ToString("yyyy-MM-dd HH:mm:ss")
+    "$timestamp - $message" | Out-File -FilePath $logFile -Append -Encoding utf8
+}
+
+
+# Headers
+$headers = @{
+    "x-api-token" = $apiToken
+    "Accept"      = "application/json"
+}
+
+try {
+    $response = Invoke-RestMethod -Uri "$baseUrl$listEndpoint" -Method Get -Headers $headers
+    $faxes = $response.payload.faxes
+
+    # Filter: faxes received in the past hour
+    $recentFaxes = $faxes | Where-Object {
+        $_.timestamp -ge $oneHourAgo
+    }
+
+    foreach ($fax in $recentFaxes) {
+        $faxId = $fax.id.ToString()
+        $timestamp = ([DateTimeOffset]::FromUnixTimeSeconds($fax.timestamp)).ToLocalTime().ToString("yyyyMMdd.HHmm")
+        $faxSender = $fax.From.ToString()
+        $fileName = "$timestamp - $FaxSender - $faxID.pdf"
+        $filePath = Join-Path $downloadDir $fileName
+        $downloadUrl = "$baseUrl" + ($downloadTemplate -f $faxId)
+        
+        try {
+            Invoke-RestMethod -Uri $downloadUrl -Headers $headers -Method Get -OutFile $filePath
+            # Write-Host "✅ Downloaded fax $faxId to $filePath"
+            Write-Log "✅ Downloaded fax from $faxSender with $faxId to $filePath"
+        } catch {
+            Write-Error "❌ Failed to download fax $faxId"
+            Write-Log "❌ Failed to download fax $faxId from $faxSender"
+        }
+    }
+
+} catch {
+    Write-Error "❌ Failed to get fax list"
+    Write-Log "❌ Failed to query endpoint for faxes"
+}
