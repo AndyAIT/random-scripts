@@ -60,7 +60,12 @@ try {
         $downloadUrl = "$baseUrl" + ($downloadTemplate -f $faxId)
         
         try {
-            Invoke-RestMethod -Uri $downloadUrl -Headers $headers -Method Get -OutFile $filePath
+           # This doesn't work - it just gives me a base64 payload.
+          # Invoke-RestMethod -Uri $downloadUrl -Headers $headers -Method Get -OutFile $filePath
+         $PDFResponse = Invoke-RestMethod -Uri $downloadUrl -Headers $headers -Method Get
+            $base64str = $PDFResponse.payload.Base64str
+            $decodedBytes = [Convert]::FromBase64String($base64Str)
+            [System.IO.File]::WriteAllBytes($filePath, $decodedBytes)
             # Write-Host "✅ Downloaded fax $faxId to $filePath"
             Write-Log "✅ Downloaded fax from $faxSender with $faxId to $filePath"
         } catch {
