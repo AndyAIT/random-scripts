@@ -45,12 +45,14 @@ $headers = @{
 try {
     $response = Invoke-RestMethod -Uri "$baseUrl$listEndpoint" -Method Get -Headers $headers
     $faxes = $response.payload.faxes
-
+    $faxCount = $Faxes.ID.Count
+    Write-Log "Trying to download...
+    Write-Log "We Found $($faxes.id.count) faxes total"
     # Filter: faxes received in the past hour
     $recentFaxes = $faxes | Where-Object {
         $_.timestamp -ge $oneHourAgo
     }
-
+    Write-Log "THere are $($recentFaxes.id.count) New Faxes"
     foreach ($fax in $recentFaxes) {
         $faxId = $fax.id.ToString()
         $timestamp = ([DateTimeOffset]::FromUnixTimeSeconds($fax.timestamp)).ToLocalTime().ToString("yyyyMMdd.HHmm")
