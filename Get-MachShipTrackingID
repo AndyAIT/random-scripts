@@ -1,0 +1,41 @@
+<#
+.SYNOPSIS
+    Retrieves carrier and tracking information from a MachShip public tracking link.
+
+.DESCRIPTION
+    Uses the MachShip API endpoint and a Consignment ID extracted from an
+    mship.io URL to return the carrier name and carrier tracking number.
+
+.PARAMETER ConsignmentId
+    The MachShip consignment ID from the tracking URL. Your carrier will have sent you an email with a url like this: 
+    https://mship.io/v2/d34d-b33f-YuCDTOViw
+    You want the part from after /v2/ - so d34d-b33f-g00d-34t
+
+.EXAMPLE
+    .\Get-MachShipTracking.ps1 -ConsignmentId "d34d-b33f-g00d-e4t"
+
+.NOTES
+    Author: Andrew Egan
+    Version: 1.0
+    Date: 2026-08-11
+#>
+
+[CmdletBinding()]
+param(
+    [Parameter(Mandatory)]
+    [string]$ConsignmentId
+)
+
+$url = "https://live.machship.com/api/Coordinates/GetPublicConsignmentDetails/?consignmentIdString=$ConsignmentId"
+
+try {
+    $data = Invoke-RestMethod -Uri $url -ErrorAction Stop
+
+    [PSCustomObject]@{
+        Carrier    = $data.object.CarrierName
+        TrackingId = $data.object.CarrierConsignmentId
+    }
+}
+catch {
+    Write-Error "Failed to retrieve tracking information. $_"
+}
