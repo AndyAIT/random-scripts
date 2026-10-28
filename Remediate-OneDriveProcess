@@ -1,0 +1,21 @@
+# Run this script when onedrive isn't running, as a remediation
+
+$Directory = $null
+
+if (Test-Path -Path "C:\Program Files\Microsoft OneDrive\OneDrive.exe") {
+    $Directory = "C:\Program Files\Microsoft OneDrive"
+}
+
+if (Test-Path -Path "$env:LOCALAPPDATA\Microsoft\OneDrive\OneDrive.exe") {
+     $Directory = "$env:LOCALAPPDATA\Microsoft\OneDrive"
+}
+
+if ($null -ne $Directory) {
+    if ($null -eq (Get-Process "OneDrive" -ea SilentlyContinue)) {
+        Start-Process -FilePath "$Directory\OneDrive.exe" -ArgumentList "/background"
+    } Else {
+        Write-Host "OneDrive.exe Process already Running!"
+    }
+} else {
+    Write-Host "Unable to determine OneDrive Path."
+}
